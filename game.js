@@ -1,9 +1,13 @@
 const CELL_DIMS = 32;
-const CELLS_MULTIPLIER = 1.5; // how many extra cells to create
+const CELLS_MULTIPLIER = 1.5;
+const DRAG_TYPE = { delete: 'delete', add: 'add' };
 
-const DRAG_TYPE = {
-    delete: 'delete',
-    add: 'add',
+const debounce = (cb, time = 500) => {
+    let timer;
+    return () => {
+        clearTimeout(timer);
+        timer = setTimeout(cb, time);
+    };
 };
 
 class Game {
@@ -47,6 +51,10 @@ class Game {
     }
 
     render() {
+        const nodesToKill = [];
+        const nodesToResurrect = [];
+        const seen = new Set();
+
         const getIsNodeAlive = (node) => {
             return !!(node && node.dataset.alive);
         };
@@ -55,47 +63,54 @@ class Game {
             return document.getElementById(`${rowIdx}-${colIdx}`);
         };
 
-        const nodesToKill = [];
-        const nodesToResurrect = [];
-
-        const colsLength = grid.childNodes.length;
-        const rowsLength = grid.childNodes[0].childNodes.length;
-
-        for (let colIdx = 0; colIdx < colsLength; colIdx++) {
-            for (let rowIdx = 0; rowIdx < rowsLength; rowIdx++) {
-                const node = getNode(rowIdx, colIdx);
-
-                const neighbors = {
-                    topLeft: getNode(rowIdx - 1, colIdx - 1),
-                    top: getNode(rowIdx - 1, colIdx),
-                    topRight: getNode(rowIdx - 1, colIdx + 1),
-                    right: getNode(rowIdx, colIdx + 1),
-                    bottomRight: getNode(rowIdx + 1, colIdx + 1),
-                    bottom: getNode(rowIdx + 1, colIdx),
-                    bottomLeft: getNode(rowIdx + 1, colIdx - 1),
-                    left: getNode(rowIdx, colIdx - 1),
-                };
-
-                const isAlive = getIsNodeAlive(node);
-                const aliveNeighbors = Object.values(neighbors).filter(getIsNodeAlive).length;
-
-                if (isAlive) {
-                    // Alive cell with 2-3 neighbors survives
-                    if (aliveNeighbors === 2 || aliveNeighbors === 3) {
-                        continue;
-                    }
-
-                    // All other live cells die in the next generation. Similarly, all other dead cells stay dead.
-                    nodesToKill.push(node);
-                    continue;
-                }
-
-                // Any dead cell with three live neighbors becomes a live cell
-                if (aliveNeighbors === 3) {
-                    nodesToResurrect.push(node);
-                }
+        const check = (node, recurse = false) => {
+            if (seen.has(node.id)) {
+                return;
             }
-        }
+
+            const ids = node.id.split('-');
+            let rowIdx = Number(ids[0]);
+            let colIdx = Number(ids[1]);
+
+            const neighbors = {
+                topLeft: getNode(rowIdx - 1, colIdx - 1),
+                top: getNode(rowIdx - 1, colIdx),
+                topRight: getNode(rowIdx - 1, colIdx + 1),
+                right: getNode(rowIdx, colIdx + 1),
+                bottomRight: getNode(rowIdx + 1, colIdx + 1),
+                bottom: getNode(rowIdx + 1, colIdx),
+                bottomLeft: getNode(rowIdx + 1, colIdx - 1),
+                left: getNode(rowIdx, colIdx - 1),
+            };
+
+            const neighborsArr = Object.values(neighbors).filter(Boolean);
+            if (recurse) {
+                neighborsArr.forEach((cell) => check(cell));
+            }
+
+            const isAlive = getIsNodeAlive(node);
+            const aliveNeighbors = neighborsArr.filter(getIsNodeAlive).length;
+
+            seen.add(node.id);
+
+            if (isAlive) {
+                // Alive cell with 2-3 neighbors survives
+                if (aliveNeighbors === 2 || aliveNeighbors === 3) {
+                    return;
+                }
+
+                // All other live cells die in the next generation. Similarly, all other dead cells stay dead.
+                nodesToKill.push(node);
+                return;
+            }
+
+            // Any dead cell with three live neighbors becomes a live cell
+            if (aliveNeighbors === 3) {
+                nodesToResurrect.push(node);
+            }
+        };
+
+        document.querySelectorAll('[data-alive]').forEach((node) => check(node, true));
 
         for (let nodeToKill of nodesToKill) {
             nodeToKill.removeAttribute('data-alive');
@@ -104,12 +119,6 @@ class Game {
         for (let nodeToResurrect of nodesToResurrect) {
             nodeToResurrect.dataset.alive = 'true';
         }
-    }
-
-    initResize() {
-        window.addEventListener('resize', () => {
-            this.initGrid();
-        });
     }
 
     initPlayBtn() {
@@ -220,7 +229,14 @@ class Game {
         this.initGrid();
         this.initPlayBtn();
         this.initClearBtn();
-        this.initResize();
+
+        window.addEventListener(
+            'resize',
+            debounce(() => {
+                console.log('I fired');
+                this.initGrid();
+            })
+        );
     }
 }
 
