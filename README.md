@@ -1,3 +1,3 @@
 # Conway's Game of Life 
 
-WIP
+[Preview](https://vasylenkoval.github.io/gameoflife/)
