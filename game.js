@@ -169,7 +169,7 @@ class Game {
     initGrid({ height = window.innerHeight, width = window.innerWidth } = {}) {
         // Rows
         const currRows = this.state.grid.childNodes.length;
-        const reqRows = Math.floor((height / CELL_DIMS) * 1.5);
+        const reqRows = Math.ceil((height / CELL_DIMS) * CELLS_MULTIPLIER);
 
         if (currRows > reqRows) {
             this.state.grid.replaceChildren(...[...this.state.grid.childNodes].slice(0, reqRows));
