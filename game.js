@@ -144,8 +144,6 @@ class Game {
 
     initDragging() {
         const onDrag = (isDragStart) => (event) => {
-            this.pause();
-
             if (!isDragStart) {
                 this.state.grid.classList.remove('grid--deleteMode');
                 this.state.dragType = undefined;
